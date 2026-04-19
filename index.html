@@ -36,9 +36,7 @@
       color: #fff;
     }
 
-    h1 span {
-      color: #7c6bff;
-    }
+    h1 span { color: #7c6bff; }
 
     textarea {
       width: 100%;
@@ -57,8 +55,35 @@
     }
 
     textarea::placeholder { color: #555; }
-
     textarea:focus { border-color: #7c6bff; }
+
+    .voice-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .voice-row label {
+      font-size: 0.82rem;
+      color: #888;
+      white-space: nowrap;
+    }
+
+    select {
+      flex: 1;
+      background: #111118;
+      border: 1px solid #2e2e42;
+      border-radius: 8px;
+      color: #e2e2e2;
+      font-size: 0.875rem;
+      padding: 0.55rem 0.85rem;
+      outline: none;
+      transition: border-color .2s;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    select:focus { border-color: #7c6bff; }
 
     .controls {
       display: flex;
@@ -80,23 +105,15 @@
       font-family: inherit;
     }
 
-    button:active { transform: scale(0.97); }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    #btn-speak {
-      background: #7c6bff;
-      color: #fff;
-    }
+    #btn-speak { background: #7c6bff; color: #fff; }
+    #btn-speak:hover:not(:disabled) { opacity: 0.88; }
 
-    #btn-speak:hover { opacity: 0.88; }
+    #btn-stop { background: #2e2e42; color: #bbb; }
+    #btn-stop:hover:not(:disabled) { opacity: 0.8; }
 
-    #btn-stop {
-      background: #2e2e42;
-      color: #bbb;
-    }
-
-    #btn-stop:hover { opacity: 0.8; }
-
-    #btn-stop:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .status {
       font-size: 0.82rem;
@@ -106,13 +123,12 @@
 
     .status.active { color: #7c6bff; }
 
-    /* animated dot when speaking */
     .dot {
       display: inline-block;
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: #7c6bff;
+      background: currentColor;
       margin-right: 4px;
       animation: pulse 1s ease-in-out infinite;
     }
@@ -129,6 +145,13 @@
 
     <textarea id="text" placeholder="Type or paste any text here…"></textarea>
 
+    <div class="voice-row">
+      <label for="voice-select">Voice</label>
+      <select id="voice-select">
+        <option disabled selected>Loading voices…</option>
+      </select>
+    </div>
+
     <div class="controls">
       <button id="btn-speak">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -144,24 +167,58 @@
         Stop
       </button>
 
-      <span class="status" id="status">Ready</span>
+<span class="status" id="status">Ready</span>
     </div>
   </div>
 
   <script>
-    const synth = window.speechSynthesis;
-    const textarea = document.getElementById('text');
-    const btnSpeak = document.getElementById('btn-speak');
-    const btnStop  = document.getElementById('btn-stop');
-    const statusEl = document.getElementById('status');
+    const synth      = window.speechSynthesis;
+    const textarea   = document.getElementById('text');
+    const btnSpeak   = document.getElementById('btn-speak');
+    const btnStop    = document.getElementById('btn-stop');
+    const voiceSelect = document.getElementById('voice-select');
+    const statusEl   = document.getElementById('status');
+
+    const STORAGE_KEY = 'speacher_voice';
+    let voices = [];
+
+    function loadVoices() {
+      const list = synth.getVoices();
+      if (!list.length) return;
+      voices = list;
+      voiceSelect.innerHTML = voices.map((v, i) =>
+        `<option value="${i}">${v.name} (${v.lang})</option>`
+      ).join('');
+
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const savedIdx = saved ? voices.findIndex(v => v.name === saved) : -1;
+      if (savedIdx >= 0) {
+        voiceSelect.selectedIndex = savedIdx;
+      } else {
+        const def = voices.findIndex(v => v.default);
+        voiceSelect.selectedIndex = def >= 0 ? def : 0;
+      }
+    }
+
+    loadVoices();
+    synth.addEventListener('voiceschanged', loadVoices);
+
+    voiceSelect.addEventListener('change', () => {
+      const v = voices[parseInt(voiceSelect.value)];
+      if (v) localStorage.setItem(STORAGE_KEY, v.name);
+    });
+
+    function selectedVoice() {
+      return voices[parseInt(voiceSelect.value)] ?? null;
+    }
 
     function setStatus(speaking) {
       if (speaking) {
         statusEl.innerHTML = '<span class="dot"></span>Speaking…';
-        statusEl.classList.add('active');
+        statusEl.className = 'status active';
       } else {
         statusEl.textContent = 'Ready';
-        statusEl.classList.remove('active');
+        statusEl.className = 'status';
       }
       btnStop.disabled = !speaking;
     }
@@ -169,14 +226,12 @@
     btnSpeak.addEventListener('click', () => {
       const text = textarea.value.trim();
       if (!text) return;
-
       synth.cancel();
-
       const utt = new SpeechSynthesisUtterance(text);
+      utt.voice   = selectedVoice();
       utt.onstart = () => setStatus(true);
       utt.onend   = () => setStatus(false);
       utt.onerror = () => setStatus(false);
-
       synth.speak(utt);
     });
 
@@ -184,6 +239,7 @@
       synth.cancel();
       setStatus(false);
     });
+
   </script>
 </body>
 </html>
