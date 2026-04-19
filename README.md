@@ -2,6 +2,10 @@
 
 A minimal browser-based text-to-speech app powered by the Web Speech API. No dependencies, no build step — just open `index.html`.
 
+## Live Demo
+
+A production deployment is available at: https://wissenss.github.io/Speacher/
+
 ## Usage
 
 1. Open `index.html` in any modern browser.
